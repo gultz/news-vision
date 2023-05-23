@@ -1,0 +1,3 @@
+[submodule "ai/tts/TensorFlowTTS"]
+	path = ai/tts/TensorFlowTTS
+	url = https://github.com/gultz/TensorFlowTTS.git
