@@ -63,9 +63,9 @@ services:
       - backend
     volumes:
       - my_data:/workspace/ai
-  wave2lip:
+  wav2lip:
     build:
-      context: ./ai/wave2lip
+      context: ./ai/wav2lip
     networks:
       - wave2lip
     depends_on:
