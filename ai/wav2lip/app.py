@@ -205,12 +205,15 @@ def test():
 
         print ("Number of frames available for inference: "+str(len(full_frames)))
 
-        # if not A_audio.endswith('.wav'):
-        #     print('Extracting raw audio...')
-        #     command = 'ffmpeg -y -i {} -strict -2 {}'.format(A_audio, 'temp/temp.wav')
-        #     subprocess.call(command, shell=True)
+        if not A_audio.endswith('.wav'):
+            print('Extracting raw audio...')
+            command = 'ffmpeg -y -i {} -strict -2 {}'.format(A_audio, 'temp/temp.wav')
+            subprocess.call(command, shell=True)
             
-        #     A_audio = 'temp/temp.wav
+            A_audio = 'temp/temp.wav'
+        else:
+            A_audio = '/'
+
 
        
 
