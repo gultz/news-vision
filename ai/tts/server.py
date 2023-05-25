@@ -16,7 +16,7 @@ def test():
     context = data['context']
 
     #volume에 저장할 file_path생성
-    audio_path = '/workspace/voice/' + title +'.wav'
+    audio_path = '/workspace/voice/' + title +'.mp3'
     
 
     #inference
@@ -30,7 +30,7 @@ def test():
     # with open(file_path,'w') as file:
     #     json.dump(context,file)
 
-    voice_path= '/workspace/video/'+ title+'.wav'
+    voice_path= '/workspace/video/'+ title+'.mp3'
     
     
     json_data = {'audio_path': voice_path,'title': title}

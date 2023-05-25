@@ -8,7 +8,6 @@ from glob import glob
 import torch, face_detection
 from models import Wav2Lip
 import platform
-# import ffmpeg
 
 
 
@@ -25,27 +24,24 @@ def test():
     if audio_path is None:
         return "Error: 'audio_path' key is missing in the JSON data."
 
+    #arg path
 
-    A_audio= audio_path
-    A_checkpoint_path = 'checkpoints/wav2lip.pth'
-    A_face = '1.mp4'
-    A_outfile = '/workspace/video/' + title + '.mp4'
-
-
-    A_static = False
-    A_fps = 25
-    A_pads=[0, 10, 0, 0]
-    A_face_det_batch_size=16
-    A_resize_factor=1
-    A_crop=[0, -1, 0, -1]
-    A_box=[-1, -1, -1, -1]
-    A_rotate=False
-    A_nosmooth=False
-    A_img_size = 96
-    A_wav2lip_batch_size=128
-
-    #arg 수정
-
+    args = argparse.Namespace()
+    args.checkpoint_path = 'checkpoints/wav2lip.pth'
+    args.face = '1.mp4'
+    args.audio = audio_path
+    args.outfile = '/workspace/video/' + title + '.mp4'
+    args.static = False
+    args.fps = 25
+    args.pads = [0, 10, 0, 0]
+    args.face_det_batch_size = 16
+    args.wav2lip_batch_size = 128
+    args.resize_factor = 1
+    args.crop = [0, -1, 0, -1]
+    args.box = [-1, -1, -1, -1]
+    args.rotate = False
+    args.nosmooth = False
+    args.img_size = 96
 
     def get_smoothened_boxes(boxes, T):
         for i in range(len(boxes)):
@@ -60,7 +56,7 @@ def test():
         detector = face_detection.FaceAlignment(face_detection.LandmarksType._2D, 
                                                 flip_input=False, device=device)
 
-        batch_size = A_face_det_batch_size
+        batch_size = args.face_det_batch_size
         
         while 1:
             predictions = []
@@ -76,7 +72,7 @@ def test():
             break
 
         results = []
-        pady1, pady2, padx1, padx2 = A_pads
+        pady1, pady2, padx1, padx2 = args.pads
         for rect, image in zip(predictions, images):
             if rect is None:
                 cv2.imwrite('temp/faulty_frame.jpg', image) # check this frame where the face was not detected.
@@ -90,7 +86,7 @@ def test():
             results.append([x1, y1, x2, y2])
 
         boxes = np.array(results)
-        if not A_nosmooth: boxes = get_smoothened_boxes(boxes, T=5)
+        if not args.nosmooth: boxes = get_smoothened_boxes(boxes, T=5)
         results = [[image[y1: y2, x1:x2], (y1, y2, x1, x2)] for image, (x1, y1, x2, y2) in zip(images, boxes)]
 
         del detector
@@ -99,33 +95,33 @@ def test():
     def datagen(frames, mels):
         img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
 
-        if A_box[0] == -1:
-            if not A_static:
+        if args.box[0] == -1:
+            if not args.static:
                 face_det_results = face_detect(frames) # BGR2RGB for CNN face detection
             else:
                 face_det_results = face_detect([frames[0]])
         else:
             print('Using the specified bounding box instead of face detection...')
-            y1, y2, x1, x2 = A_box
+            y1, y2, x1, x2 = args.box
             face_det_results = [[f[y1: y2, x1:x2], (y1, y2, x1, x2)] for f in frames]
 
         for i, m in enumerate(mels):
-            idx = 0 if A_static else i%len(frames)
+            idx = 0 if args.static else i%len(frames)
             frame_to_save = frames[idx].copy()
             face, coords = face_det_results[idx].copy()
 
-            face = cv2.resize(face, (A_img_size, A_img_size))
+            face = cv2.resize(face, (args.img_size, args.img_size))
                 
             img_batch.append(face)
             mel_batch.append(m)
             frame_batch.append(frame_to_save)
             coords_batch.append(coords)
 
-            if len(img_batch) >= A_wav2lip_batch_size:
+            if len(img_batch) >= args.wav2lip_batch_size:
                 img_batch, mel_batch = np.asarray(img_batch), np.asarray(mel_batch)
 
                 img_masked = img_batch.copy()
-                img_masked[:, A_img_size//2:] = 0
+                img_masked[:, args.img_size//2:] = 0
 
                 img_batch = np.concatenate((img_masked, img_batch), axis=3) / 255.
                 mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2], 1])
@@ -137,7 +133,7 @@ def test():
             img_batch, mel_batch = np.asarray(img_batch), np.asarray(mel_batch)
 
             img_masked = img_batch.copy()
-            img_masked[:, A_img_size//2:] = 0
+            img_masked[:, args.img_size//2:] = 0
 
             img_batch = np.concatenate((img_masked, img_batch), axis=3) / 255.
             mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2], 1])
@@ -170,15 +166,15 @@ def test():
         return model.eval()
 
     def main():
-        if not os.path.isfile(A_face):
+        if not os.path.isfile(args.face):
             raise ValueError('--face argument must be a valid path to video/image file')
 
-        elif A_face.split('.')[1] in ['jpg', 'png', 'jpeg']:
-            full_frames = [cv2.imread(A_face)]
-            fps = A_fps
+        elif args.face.split('.')[1] in ['jpg', 'png', 'jpeg']:
+            full_frames = [cv2.imread(args.face)]
+            fps = args.fps
 
         else:
-            video_stream = cv2.VideoCapture(A_face)
+            video_stream = cv2.VideoCapture(args.face)
             fps = video_stream.get(cv2.CAP_PROP_FPS)
 
             print('Reading video frames...')
@@ -189,13 +185,13 @@ def test():
                 if not still_reading:
                     video_stream.release()
                     break
-                if A_resize_factor > 1:
-                    frame = cv2.resize(frame, (frame.shape[1]//A_resize_factor, frame.shape[0]//A_resize_factor))
+                if args.resize_factor > 1:
+                    frame = cv2.resize(frame, (frame.shape[1]//args.resize_factor, frame.shape[0]//args.resize_factor))
 
-                if A_rotate:
+                if args.rotate:
                     frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
 
-                y1, y2, x1, x2 = A_crop
+                y1, y2, x1, x2 = args.crop
                 if x2 == -1: x2 = frame.shape[1]
                 if y2 == -1: y2 = frame.shape[0]
 
@@ -205,19 +201,16 @@ def test():
 
         print ("Number of frames available for inference: "+str(len(full_frames)))
 
-        if not A_audio.endswith('.wav'):
+        if not args.audio.endswith('.wav'):
             print('Extracting raw audio...')
-            command = 'ffmpeg -y -i {} -strict -2 {}'.format(A_audio, 'temp/temp.wav')
+            command = 'ffmpeg -y -i {} -strict -2 {}'.format(args.audio, 'temp/temp.wav')
+
             subprocess.call(command, shell=True)
-            
-            A_audio = 'temp/temp.wav'
-        else:
-            A_audio = '/'
+            args.audio = 'temp/temp.wav'
+                
+                
 
-
-       
-
-        wav = audio.load_wav(A_audio, 16000)
+        wav = audio.load_wav(args.audio, 16000)
         mel = audio.melspectrogram(wav)
         print(mel.shape)
 
@@ -239,13 +232,13 @@ def test():
 
         full_frames = full_frames[:len(mel_chunks)]
 
-        batch_size = A_wav2lip_batch_size
+        batch_size = args.wav2lip_batch_size
         gen = datagen(full_frames.copy(), mel_chunks)
 
         for i, (img_batch, mel_batch, frames, coords) in enumerate(tqdm(gen, 
                                                 total=int(np.ceil(float(len(mel_chunks))/batch_size)))):
             if i == 0:
-                model = load_model(A_checkpoint_path)
+                model = load_model(args.checkpoint_path)
                 print ("Model loaded")
 
                 frame_h, frame_w = full_frames[0].shape[:-1]
@@ -269,14 +262,13 @@ def test():
 
         out.release()
 
-        command = 'ffmpeg -y -i {} -i {} -strict -2 -q:v 1 {}'.format(A_audio, 'temp/result.avi', A_outfile)
+        command = 'ffmpeg -y -i {} -i {} -strict -2 -q:v 1 {}'.format(args.audio, 'temp/result.avi', args.outfile)
         subprocess.call(command, shell=platform.system() != 'Windows')
-
-
+    
     main()
 
-    return "sucesss wav2lip"
-
+    return "sucess wav2lip"
+    
 
 if __name__=='__main__':
     app.run()
