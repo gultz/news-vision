@@ -82,6 +82,7 @@ services:
     deploy:
       resources:
         reservations:
+          memory: 8g
           devices:
             - driver: nvidia
               count: all
